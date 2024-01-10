@@ -1,11 +1,11 @@
-import {Server} from "http";
 import {logError, logInfo} from "../util/logger";
+import {MyHttpServer} from "./my-http-server";
 
-export async function initializeGracefulShutdownMechanism(httpServer: Server, timeoutMs: number) {
-    logInfo('Initializing Graceful Shutdown Mechanism');
-    const handleGracefulShutdown = async (signal: string) => {
-        logInfo('Received', signal);
-        await gracefulShutdown(httpServer, timeoutMs);
+export async function initializeGracefulShutdownMechanism(myHttpServer: MyHttpServer, timeoutMs: number) {
+    logInfo('Initializing Graceful Shutdown Mechanism...');
+    const handleGracefulShutdown = (signal: string) => {
+        logInfo('\nReceived', signal);
+        gracefulShutdown(myHttpServer, timeoutMs);
     };
     process.once('SIGTERM', () => handleGracefulShutdown('SIGTERM'));
     process.once('SIGINT', () => handleGracefulShutdown('SIGINT'));
@@ -13,31 +13,25 @@ export async function initializeGracefulShutdownMechanism(httpServer: Server, ti
         logError('\nReceived SIGUSR2. Exiting Forcefully');
         process.exit(2);
     });
-    logInfo('Graceful Shutdown Mechanism Initialized');
 }
 
-export async function gracefulShutdown(httpServer: Server, timeoutMs: number) {
+export function gracefulShutdown(myHttpServer: MyHttpServer, timeoutMs: number) {
     try {
-        logInfo('Shutting Down Gracefully');
-        let timeout: NodeJS.Timeout | null = null;
-        await new Promise<void>((resolve, reject) => {
-            timeout = setTimeout(() => {
-                logError('Forcefully terminating due to timeout');
-                reject(new Error('Forcefully terminating due to timeout'));
-            }, timeoutMs);
-            logInfo('Closing HTTP Server');
-            httpServer.close((err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    logInfo('HTTP Server Closed');
-                    resolve();
-                }
-            });
+        logInfo('Shutting Down Gracefully...');
+        const timeout = setTimeout(() => {
+            logError('Forcefully terminating due to timeout');
+            process.exit(1)
+        }, timeoutMs);
+
+        logInfo('Closing HTTP Server...');
+        myHttpServer.close((err) => {
+            if (err) {
+                process.exit(1)
+            }
+            myHttpServer.closeIdleConnections()
+            if (timeout) clearTimeout(timeout);
+            process.exit(0);
         });
-        if (timeout) clearTimeout(timeout);
-        logInfo('Exiting...');
-        process.exit(0);
     } catch (err) {
         logError('Error Occurred While Closing Gracefully', err);
         process.exit(1);

@@ -82,11 +82,11 @@ export type MyHttpResponse = {
     body?: string | ((res: NodeJS.WritableStream) => void);
 }
 
-export type MyParams = [{
+export type MyParams = {
     [key: string]: string | number
-}]
+}[] | []
 
-export type MyHttpHandler = (req: MyHttpRequest, params?: MyParams) => Promise<MyHttpResponse>
+export type MyHttpHandler = (req: MyHttpRequest, params: MyParams) => Promise<MyHttpResponse>
 
 const HTTP_PREFIX = 'http://';
 const DEFAULT_STATUS_MESSAGE = 'Unknown Status';
