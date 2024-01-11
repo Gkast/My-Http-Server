@@ -1,6 +1,20 @@
 import {IncomingMessage, ServerResponse} from "http";
-import {formatHttpLogRequest, generateTimestamp} from "./util";
+import {generateTimestamp} from "./util";
 
+
+export function formatHttpLogRequest(req: IncomingMessage, res: ServerResponse) {
+    const {socket, method, url, httpVersion, headers} = req;
+    const {remoteAddress} = socket;
+    const {statusCode} = res;
+    const remoteAddressFormatted = process.env.NODE_ENV === 'production' ? req.headers["x-forwarded-for"] : (remoteAddress || '-');
+    const authUser = '-';
+    const timestamp = new Date().toISOString().replace('T', ' ').replace(/\..+/, '');
+    const contentLength = res.getHeader('content-length') || '-';
+    const referer = headers.referer || '-';
+    const userAgent = headers['user-agent'] || '-';
+
+    return `-- ${remoteAddressFormatted} ${authUser} [${timestamp}] "${method || '-'} ${url || '-'} HTTP/${httpVersion || '-'}" ${statusCode || '-'} ${contentLength} "${referer}" "${userAgent}" --`;
+}
 
 export function logHttpRequest(req: IncomingMessage, res: ServerResponse) {
     const logMessage = formatHttpLogRequest(req, res)

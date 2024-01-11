@@ -6,8 +6,8 @@ import {
     MyHttpHandler,
     myResToRes,
     reqToMyReq
-} from "../util/tools";
-import {getMimeType} from "./mime-types";
+} from "./my-http-tools";
+import {getMimeType} from "./my-mime-types";
 import {logError, logInfo} from "../util/logger";
 import {MyRouter} from "./my-router";
 import {Duplex} from "node:stream";
@@ -59,7 +59,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, router: 
             ].includes(method as HttpMethod);
         }
         if (!isHttpMethod(myReq.method.toUpperCase())) {
-            handleError('Method Not Allowed')
+            handleError('Method Not Allowed');
+            return;
         }
         const [myHandler, myParams] = router.find(myReq.method, myReq.url.pathname.toLowerCase());
         if (!myHandler) {

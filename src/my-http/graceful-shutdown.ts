@@ -26,6 +26,7 @@ export function gracefulShutdown(myHttpServer: MyHttpServer, timeoutMs: number) 
         myHttpServer.closeIdleConnections()
         myHttpServer.close((err) => {
             if (err) {
+                logError('Error closing HTTP Server:', err)
                 process.exit(1)
             }
             if (timeout) clearTimeout(timeout);

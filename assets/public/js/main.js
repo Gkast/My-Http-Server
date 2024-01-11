@@ -1,1 +1,1 @@
-document.addEventListener('click', ev => console.log('clicked'))
+document.addEventListener('click', event => console.log('clicked'))

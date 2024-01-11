@@ -1,12 +1,12 @@
 export type MimeExtensions = keyof typeof MIME_TYPES;
-export type MimeTypes = typeof MIME_TYPES[MimeExtensions];
+export type MyMimeTypes = typeof MIME_TYPES[MimeExtensions];
 
-export function getMimeType(extension: MimeExtensions): MimeTypes {
+export function getMimeType(extension: MimeExtensions): MyMimeTypes {
     return MIME_TYPES[extension];
 }
 
-export function getMimeExtension(contentType: MimeTypes) {
-    return (Object.keys(MIME_TYPES) as MimeExtensions[]).find((key) => MIME_TYPES[key] === contentType)
+export function getMimeExtension(contentType: MyMimeTypes): MimeExtensions {
+    return (Object.keys(MIME_TYPES) as MimeExtensions[]).find((key) => MIME_TYPES[key] === contentType)!
 }
 
 const MIME_TYPES = {

@@ -1,4 +1,4 @@
-import {PageParams} from "./http-responses";
+import {PageParams} from "./my-http-responses";
 
 export function htmlPageTemplate(params: PageParams): string {
     return htmlTopPageTemplate(params) + (params.htmlBody ? params.htmlBody : '') + htmlBottomPageTemplate()
@@ -10,7 +10,7 @@ export function htmlTopPageTemplate(params: PageParams): string {
 <head>
     <meta charset="UTF-8">
     <title>${params.pageTitle}</title>
-    <link rel="stylesheet" type="text/css" href="/assets/public/css/main.css">
+    <link rel="stylesheet" type="text/css" href='${process.env.NODE_ENV === 'Production' ? '/assets/public/css/main.min.css' : '/assets/public/css/main.css'}'>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
@@ -49,7 +49,7 @@ function require(key) {
     funcs[key].apply(null, resolved);
     return cache[key] = resolved[1];
 }}</script>
-<script src="/assets/public/js/main.js"></script>
+<script src='${process.env.NODE_ENV === 'Production' ? '/assets/public/js/main.min.js' : '/assets/public/js/main.js'}'></script>
 <script type="text/javascript">{Object.keys(deps).forEach(depName => require(depName))}</script>
 </body>
 </html>`;
@@ -71,4 +71,19 @@ export function footerHtml(): string {
     return `<div>
         <span>My HTTP Footer</span>
     </div>`
+}
+
+export function notFoundHtmlTemplate(title: string, message: string): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>${title}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+  <body>
+    <h1 style="text-align: center; margin-top: 24px">${message}</h1>
+  </body>
+</html>
+`
 }

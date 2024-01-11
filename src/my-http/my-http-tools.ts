@@ -1,9 +1,10 @@
 import {IncomingHttpHeaders, IncomingMessage, ServerResponse} from "http";
 import {URL} from "url";
 import {OutgoingHttpHeaders} from "node:http";
-import {streamToString} from "./util";
+import {streamToString} from "../util/util";
 import {Socket} from "node:net";
-import {logError} from "./logger";
+import {logError} from "../util/logger";
+import {minify, Options} from "html-minifier";
 
 const HTTP_STATUS = {
     100: 'Continue',
@@ -70,14 +71,15 @@ const HTTP_STATUS = {
 export type HttpStatusCode = keyof typeof HTTP_STATUS;
 export type HttpStatusMessage = typeof HTTP_STATUS[HttpStatusCode];
 
-export type MyHttpRequest<Body extends { [key: string]: string } | null | undefined> = {
+export type MyHttpRequest<Body extends DefaultIncomingBody> = {
     readonly url: URL;
     readonly method: string | undefined;
     readonly remoteAddr: string | undefined;
     readonly httpVersion: string;
     readonly socket: Socket;
+    readonly cookies: Map<string, string> | undefined
     readonly headers: IncomingHttpHeaders;
-    readonly body: Body extends { [key: string]: string } | null | undefined ? Body : never;
+    readonly body: Body;
     readonly nodeJsReqObject: IncomingMessage;
 }
 
@@ -87,14 +89,15 @@ export type MyHttpResponse = {
     readonly body?: string | ((res: NodeJS.WritableStream) => void);
 }
 
-export type PathVariables = {
+export type MyRoutePathVariables = {
     name: string,
     value: string | number
 }[] | undefined | null
 
-export type MyHttpHandler<Body extends { [key: string]: string } | null | undefined = {
-    [key: string]: string;
-} | null | undefined> = (req: MyHttpRequest<Body>, myPathVars: PathVariables) => Promise<MyHttpResponse>;
+export type DefaultIncomingBody = { [key: string]: string | number }
+
+export type MyHttpHandler<Body extends DefaultIncomingBody = DefaultIncomingBody> =
+    (req: MyHttpRequest<Body>, myPathVars: MyRoutePathVariables) => Promise<MyHttpResponse>;
 
 const HTTP_PREFIX = 'http://';
 
@@ -103,17 +106,23 @@ export function getHttpStatusMessage(statusCode: HttpStatusCode): HttpStatusMess
 }
 
 export function getHttpStatusCode(statusMessage: HttpStatusMessage): HttpStatusCode {
-    const statusCode = Object.keys(HTTP_STATUS).find(key => HTTP_STATUS[parseInt(key) as HttpStatusCode] === statusMessage)
-    return parseInt(statusCode!) as HttpStatusCode
+    return Object.keys(HTTP_STATUS).map(key => parseInt(key) as HttpStatusCode).find(key => HTTP_STATUS[key] === statusMessage)!
 }
 
-export async function reqToMyReq(req: IncomingMessage): Promise<MyHttpRequest<{
-    [key: string]: string
-} | null | undefined>> {
+export function parseRequestCookies(cookies: string): Map<string, string> {
+    const allCookiesMap = new Map<string, string>();
+    cookies.split(";").forEach(cookie => {
+        const parts = cookie.split('=', 2);
+        allCookiesMap.set(parts[0].trim(), parts[1]);
+    });
+    return allCookiesMap;
+}
+
+export async function reqToMyReq<Body extends DefaultIncomingBody = DefaultIncomingBody>(req: IncomingMessage): Promise<MyHttpRequest<Body>> {
     try {
+        const cookies = req.headers.cookie ? parseRequestCookies(req.headers.cookie) : undefined
         const bodyString = await streamToString(req);
         const body = bodyString.trim() === '' ? null : JSON.parse(bodyString);
-
         return {
             url: new URL(req.url || '', `${HTTP_PREFIX}${req.headers.host}`),
             method: req.method,
@@ -121,11 +130,12 @@ export async function reqToMyReq(req: IncomingMessage): Promise<MyHttpRequest<{
             httpVersion: req.httpVersion,
             socket: req.socket,
             headers: req.headers,
+            cookies: cookies,
             body: body,
             nodeJsReqObject: req,
         };
-    } catch (error) {
-        logError('Error parsing request body:', error);
+    } catch (err) {
+        logError('Error parsing request body:', err);
         throw new Error('Failed to parse request body');
     }
 }
@@ -135,15 +145,47 @@ export function myResToRes(myRes: MyHttpResponse, res: ServerResponse): void {
     res.statusCode = status;
     res.statusMessage = getHttpStatusMessage(status);
 
-    if (headers) {
-        Object.entries(headers).forEach(([headerName, headerValue]) => {
-            if (headerValue) res.setHeader(headerName, headerValue);
-        });
-    }
+    // res.setHeader('Content-Security-Policy', "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests");
+    res.setHeader('Cross-Origin-Opener-Policy', "same-origin");
+    res.setHeader('Cross-Origin-Resource-Policy', "cross-origin");
+    res.setHeader('Origin-Agent-Cluster', "?1");
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Download-Options', 'noopen');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+    res.setHeader('X-XSS-Protection', '0');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Permissions-Policy', 'geolocation=(self "http://localhost:3000")');
+
+    Object.entries(headers).forEach(([headerName, headerValue]) => {
+        if (headerValue) res.setHeader(headerName, headerValue);
+    });
 
     if (body) {
         if (typeof body === 'string') {
-            res.end(body);
+            const minifyOptions: Options = {
+                collapseWhitespace: true,
+                removeComments: true,
+                removeRedundantAttributes: true,
+                removeEmptyAttributes: true,
+                removeScriptTypeAttributes: true,
+                removeStyleLinkTypeAttributes: true,
+                minifyJS: true,
+                minifyCSS: true,
+                removeOptionalTags: true,
+                removeAttributeQuotes: true,
+                quoteCharacter: "'",
+                preserveLineBreaks: false,
+                removeTagWhitespace: true,
+                sortAttributes: true,
+                sortClassName: true,
+                useShortDoctype: true,
+                includeAutoGeneratedTags: true
+            }
+            const minifiedBody = minify(body, minifyOptions)
+            res.end(minifiedBody);
         } else if (typeof body === 'function') {
             body(res);
         } else {

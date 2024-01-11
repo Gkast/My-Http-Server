@@ -1,6 +1,6 @@
-import {MyHttpResponse} from "../util/tools";
-import {getMimeType, MimeTypes} from "./mime-types";
-import {htmlPageTemplate} from "./html-templates";
+import {MyHttpResponse} from "./my-http-tools";
+import {getMimeType, MyMimeTypes} from "./my-mime-types";
+import {htmlPageTemplate, notFoundHtmlTemplate} from "./my-html-templates";
 
 export type PageParams = {
     readonly pageTitle: string;
@@ -17,7 +17,7 @@ export function pageHtmlResponse(
 }
 
 export function pageResponseStream(
-    contentType: MimeTypes,
+    contentType: MyMimeTypes,
     pageResponseStream: (res: NodeJS.WritableStream) => void): MyHttpResponse {
     return {
         status: 200,
@@ -46,11 +46,11 @@ export function redirectResponse(location: string): MyHttpResponse {
 
 export function pageNotFoundResponse(
     title = 'Page Not Found',
-    htmlBody = `<h1>Page Not Found</h1>`): MyHttpResponse {
+    message = `Page Not Found`): MyHttpResponse {
     return {
         status: 404,
         headers: {'content-type': getMimeType("html")},
-        body: htmlPageTemplate({pageTitle: title, htmlBody: htmlBody})
+        body: notFoundHtmlTemplate(title, message)
     }
 }
 

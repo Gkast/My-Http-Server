@@ -1,7 +1,7 @@
 import Router, {HttpMethod} from './trie-http-router'
 import {logInfo} from "../util/logger";
 
-export type MyRouter<Handler> = ReturnType<typeof createMyRouter<Handler>>;
+export type MyRouter<Handler = unknown> = ReturnType<typeof createMyRouter<Handler>>;
 
 function createMyRouter<Handler = unknown>() {
     logInfo('Initializing HTTP Router...')

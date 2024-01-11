@@ -234,10 +234,9 @@ class Router<Handler = unknown> {
         const pvalues = result[1];
         let i, pl, l, max, c;
         let preSearch;
-        const parsedMethod = method.toUpperCase()
 
         if (sl === 0 || path === prefix) {
-            const r = cn.findHandler(parsedMethod);
+            const r = cn.findHandler(method);
             if ((result[0] = r && r.handler) !== undefined) {
                 const pnames = r.pnames;
                 if (pnames !== undefined) {
