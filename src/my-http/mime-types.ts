@@ -1,7 +1,7 @@
 export type MimeExtensions = keyof typeof MIME_TYPES;
 export type MimeTypes = typeof MIME_TYPES[MimeExtensions];
 
-export function getMimeType(extension: MimeExtensions) {
+export function getMimeType(extension: MimeExtensions): MimeTypes {
     return MIME_TYPES[extension];
 }
 

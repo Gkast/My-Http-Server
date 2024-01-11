@@ -1,7 +1,7 @@
 /**
  * Definition of HTTP methods supported by the router
  */
-export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "HEAD" | "CONNECT" | "OPTIONS" | "TRACE" | "PATCH";
 
 /**
  * Constants representing different node kinds in the router tree
@@ -87,7 +87,7 @@ class Node {
 /**
  * Router class that manages routing using a tree-based structure
  */
-class Router<T = unknown> {
+class Router<Handler = unknown> {
     private readonly tree: Node;
 
     /**
@@ -103,7 +103,7 @@ class Router<T = unknown> {
      * @param path - Path associated with the route
      * @param handler - Handler associated with the route
      */
-    add(method: HttpMethod, path: string, handler: T) {
+    add(method: HttpMethod, path: string, handler: Handler) {
         let [i, l, pnames, ch, j]: [number, number, any[], number, number] = [0, path.length, [], 0, 0];
 
         for (; i < l; ++i) {
@@ -142,7 +142,10 @@ class Router<T = unknown> {
      * @param path - Path to find a handler for
      * @returns Tuple containing handler (if found) and parameter values
      */
-    find(method: string, path: string): [(T | undefined), ({ [key: string]: string | number }[] | [])] {
+    find(method: string, path: string): [(Handler | undefined), ({
+        name: string,
+        value: string | number
+    }[] | (undefined | null))] {
         return this.internalFind(method, path, this.tree);
     }
 
@@ -224,7 +227,7 @@ class Router<T = unknown> {
         cn?: Node,
         n: number = 0,
         result: [any | undefined, any[]] = [undefined, []]
-    ): [T | undefined, { [key: string]: string }[] | []] {
+    ): [Handler | undefined, { name: string, value: string | number }[] | []] {
         cn = cn || this.tree;
         const sl = path.length;
         const prefix = cn.prefix;

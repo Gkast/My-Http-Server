@@ -1,14 +1,23 @@
 import {createServer, IncomingMessage, Server, ServerResponse} from "http";
-import {myResToRes, reqToMyReq} from "../util/tools";
+import {
+    getHttpStatusCode,
+    HttpStatusCode,
+    HttpStatusMessage,
+    MyHttpHandler,
+    myResToRes,
+    reqToMyReq
+} from "../util/tools";
 import {getMimeType} from "./mime-types";
 import {logError, logInfo} from "../util/logger";
 import {MyRouter} from "./my-router";
 import {Duplex} from "node:stream";
+import {HttpMethod} from "./trie-http-router";
 
-type ErrorInfo = { code: string; message: string; };
+type ErrorInfo = { readonly code: string; readonly message: string; };
+type HttpErrorInfo = { readonly statusCode: HttpStatusCode; readonly statusMessage: HttpStatusMessage; };
 export type MyHttpServer = Server<typeof IncomingMessage, typeof ServerResponse>
 
-export function createMyHttpServer(port: number, myRouter: MyRouter): MyHttpServer {
+export function createMyHttpServer(port: number, myRouter: MyRouter<MyHttpHandler>): MyHttpServer {
     logInfo('Initializing HTTP Server...')
     const myHttpServer = createServer();
     myHttpServer.on('request', (req, res) => handleRequest(req, res, myRouter));
@@ -19,34 +28,52 @@ export function createMyHttpServer(port: number, myRouter: MyRouter): MyHttpServ
     return myHttpServer;
 }
 
-async function handleRequest(req: IncomingMessage, res: ServerResponse, router: MyRouter) {
-    const handleError = (err: unknown) => {
-        const errorInfo: ErrorInfo = getErrorInfo(err);
-        logError(`HTTP Request Handling Error:\nUrl: ${req.url}\nHeaders: ${JSON.stringify(req.headers, null, 2)}`, err);
-        res.statusCode = errorInfo.code === 'Bad Request' ? 400 : 500;
-        res.setHeader('Content-Type', getMimeType('json'));
-        res.end(JSON.stringify({error: errorInfo.message}));
+async function handleRequest(req: IncomingMessage, res: ServerResponse, router: MyRouter<MyHttpHandler>) {
+    const handleError = (errorMessage: HttpStatusMessage, err?: unknown) => {
+        const errorInfo = getHttpErrorInfo(errorMessage);
+        logError(`HTTP Request Error:\nUrl: ${req.url}\nHeaders: ${JSON.stringify(req.headers, null, 2)}`, '\nHTTP Message:', errorMessage, '\nError:', !err ? 'No Error Object' : err);
+        res.statusCode = errorInfo.statusCode
+        res.statusMessage = errorInfo.statusMessage
+        res.setHeader('Content-Type', getMimeType('pl'));
+        res.end(errorInfo.statusMessage);
     };
 
     try {
-        const myReq = reqToMyReq(req);
+        const myReq = await reqToMyReq(req);
         if (!myReq || !myReq.method || !myReq.url) {
             handleError('Bad Request');
             return;
         }
-        const [myHandler, myParams] = router.find(myReq.method, myReq.url.pathname.toLowerCase()) || [];
+
+        const isHttpMethod = (method: string): method is HttpMethod => {
+            return [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "HEAD",
+                "CONNECT",
+                "OPTIONS",
+                "TRACE",
+                "PATCH"
+            ].includes(method as HttpMethod);
+        }
+        if (!isHttpMethod(myReq.method.toUpperCase())) {
+            handleError('Method Not Allowed')
+        }
+        const [myHandler, myParams] = router.find(myReq.method, myReq.url.pathname.toLowerCase());
         if (!myHandler) {
-            handleError('Method not found');
+            handleError('Not Found');
             return;
         }
         const myRes = await myHandler(myReq, myParams)
         myResToRes(myRes, res);
     } catch (err) {
-        handleError(err);
+        handleError('Internal Server Error', err);
     }
 }
 
-function handleServerError(err: NodeJS.ErrnoException, port: string | number) {
+function handleServerError(err: NodeJS.ErrnoException, port: number) {
     const errorInfo: ErrorInfo = {
         code: err.code === 'EACCES' ? 'Bind requires elevated privileges' :
             err.code === 'EADDRINUSE' ? `Port ${port} is already in use` : 'Unexpected Error',
@@ -81,9 +108,6 @@ function handleDropRequest(req: IncomingMessage, socket: Duplex) {
     socket.end('HTTP/1.1 503 Service Unavailable\r\n\r\n');
 }
 
-function getErrorInfo(err: unknown): ErrorInfo {
-    if (err instanceof SyntaxError || err instanceof TypeError) {
-        return {code: 'Bad Request', message: 'Bad Request'};
-    }
-    return {code: 'Internal Server Error', message: 'Internal Server Error'};
+function getHttpErrorInfo(errorMessage: HttpStatusMessage): HttpErrorInfo {
+    return {statusCode: getHttpStatusCode(errorMessage), statusMessage: errorMessage}
 }

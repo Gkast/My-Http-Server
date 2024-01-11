@@ -22,13 +22,12 @@ export function gracefulShutdown(myHttpServer: MyHttpServer, timeoutMs: number) 
             logError('Forcefully terminating due to timeout');
             process.exit(1)
         }, timeoutMs);
-
         logInfo('Closing HTTP Server...');
+        myHttpServer.closeIdleConnections()
         myHttpServer.close((err) => {
             if (err) {
                 process.exit(1)
             }
-            myHttpServer.closeIdleConnections()
             if (timeout) clearTimeout(timeout);
             process.exit(0);
         });

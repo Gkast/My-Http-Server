@@ -1,10 +1,10 @@
 import {MyHttpResponse} from "../util/tools";
-import {getMimeType} from "./mime-types";
+import {getMimeType, MimeTypes} from "./mime-types";
 import {htmlPageTemplate} from "./html-templates";
 
 export type PageParams = {
-    pageTitle: string;
-    htmlBody?: string
+    readonly pageTitle: string;
+    readonly htmlBody?: string
 }
 
 export function pageHtmlResponse(
@@ -17,8 +17,8 @@ export function pageHtmlResponse(
 }
 
 export function pageResponseStream(
-    contentType: string,
-    pageResponseStream: ((res: NodeJS.WritableStream) => void)): MyHttpResponse {
+    contentType: MimeTypes,
+    pageResponseStream: (res: NodeJS.WritableStream) => void): MyHttpResponse {
     return {
         status: 200,
         headers: {"content-type": contentType},

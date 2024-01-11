@@ -1,34 +1,33 @@
 import Router, {HttpMethod} from './trie-http-router'
-import {MyHttpHandler} from "../util/tools";
 import {logInfo} from "../util/logger";
 
-export type MyRouter = ReturnType<typeof createMyRouter>;
+export type MyRouter<Handler> = ReturnType<typeof createMyRouter<Handler>>;
 
-function createMyRouter() {
+function createMyRouter<Handler = unknown>() {
     logInfo('Initializing HTTP Router...')
-    const routes = new Router<MyHttpHandler>();
+    const routes = new Router<Handler>();
 
-    function add(method: HttpMethod, path: string, handler: MyHttpHandler) {
+    function add(method: HttpMethod, path: string, handler: Handler) {
         routes.add(method, path, handler);
     }
 
-    function get(path: string, handler: MyHttpHandler) {
+    function get(path: string, handler: Handler) {
         add('GET', path, handler);
     }
 
-    function post(path: string, handler: MyHttpHandler) {
+    function post(path: string, handler: Handler) {
         add('POST', path, handler);
     }
 
-    function put(path: string, handler: MyHttpHandler) {
+    function put(path: string, handler: Handler) {
         add('PUT', path, handler);
     }
 
-    function del(path: string, handler: MyHttpHandler) {
+    function del(path: string, handler: Handler) {
         add('DELETE', path, handler);
     }
 
-    function all(path: string, handler: MyHttpHandler) {
+    function all(path: string, handler: Handler) {
         get(path, handler)
         post(path, handler)
         put(path, handler)
@@ -39,7 +38,7 @@ function createMyRouter() {
         return routes.find(method, path);
     }
 
-    return {get, post, put, del, all, find};
+    return {get, post, put, del, all, find, add};
 }
 
 export default createMyRouter;

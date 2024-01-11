@@ -1,0 +1,18 @@
+# Robots.txt file for example.com
+
+# Allow crawling for all user agents
+User-Agent: *
+Allow: /
+
+# Disallow crawling of specific directories or pages
+Disallow: /admin/
+Disallow: /private/
+Disallow: /secret-page.html
+
+# Allow access to sitemap if available
+Sitemap: https://www.example.com/sitemap.xml
+
+# Specify crawl delay for all user agents (in seconds)
+# Crawl delay of 10 seconds between requests
+# Crawl-delay is not supported by all search engines
+Crawl-delay: 10

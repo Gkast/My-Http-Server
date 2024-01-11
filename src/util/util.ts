@@ -1,4 +1,10 @@
 import {IncomingMessage, ServerResponse} from "http";
+import fs from "fs";
+import {pageNotFoundResponse} from "../my-http/http-responses";
+import {MyHttpHandler} from "./tools";
+import {getMimeType, MimeExtensions} from "../my-http/mime-types";
+import path from "node:path";
+import {logError} from "./logger";
 
 export function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
     const chunks: Buffer[] = [];
@@ -36,4 +42,51 @@ export function parseRequestCookies(cookie: string) {
         });
     }
     return allCookiesMap;
+}
+
+export function staticFileReqList(): MyHttpHandler {
+    return async (req) => {
+        try {
+            const decodedPath = decodeURIComponent(req.url.pathname);
+            const requestedFilePath = path.join(__dirname, '../..', decodedPath);
+            const result = await fs.promises.stat(requestedFilePath);
+            const ext = decodedPath.split('.').pop();
+
+            if (result.isFile() && ext !== undefined) {
+                const forceDownload = req.url.searchParams.get('download') === '1';
+                const contentType = getMimeType(ext as MimeExtensions) || getMimeType("bin");
+
+                const fileStream = fs.createReadStream(requestedFilePath);
+                fileStream.on('error', (error) => {
+                    logError('Error reading file:', error);
+                    return {
+                        status: 500,
+                        headers: {
+                            "content-type": getMimeType('pl')
+                        },
+                        body: 'Internal Server Error'
+                    };
+                });
+
+                const headers = {
+                    'content-type': contentType,
+                    'content-length': result.size.toString(),
+                    'content-disposition': forceDownload ? 'attachment' : 'inline',
+                };
+
+                return {status: 200, headers, body: (res) => fileStream.pipe(res)};
+            } else {
+                return pageNotFoundResponse('File Not Found', `<h1>File Not Found</h1>`);
+            }
+        } catch (error) {
+            logError('Error serving static file:', error);
+            return {
+                status: 500,
+                headers: {
+                    "content-type": getMimeType('pl')
+                },
+                body: 'Internal Server Error'
+            }
+        }
+    };
 }
