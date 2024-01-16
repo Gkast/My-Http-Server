@@ -8,10 +8,11 @@ export type PageParams = {
 }
 
 export function pageHtmlResponse(
-    params: PageParams, minifyOption = true): MyHttpResponse {
+    params: PageParams, minifyOption = true, securityHeadersOption = true): MyHttpResponse {
     return {
         status: 200,
         headers: {"content-type": getMimeType("html")},
+        security_headers: securityHeadersOption,
         minify: minifyOption,
         body: htmlPageTemplate(params)
     }
@@ -40,7 +41,7 @@ export function downloadResponse(
     }
 }
 
-export function redirectResponse(statusCode: HttpStatusCode = 302, location: string): MyHttpResponse {
+export function redirectResponse(location: string, statusCode: HttpStatusCode = 302): MyHttpResponse {
     return {
         status: statusCode,
         headers: {location: location},

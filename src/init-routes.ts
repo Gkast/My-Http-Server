@@ -4,7 +4,7 @@ import {MyHttpHandler} from "./my-http/my-http-tools";
 import {homeHandler} from "./handlers/home";
 import {staticFileHandler} from "./handlers/static-file-handler";
 
-export async function initRoutes(router: MyRouter<MyHttpHandler>) {
+export function initRoutes(router: MyRouter<MyHttpHandler>) {
     router.get('/', homeHandler());
     router.get('/home', homeHandler());
 

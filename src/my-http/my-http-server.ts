@@ -28,7 +28,7 @@ export function createMyHttpServer(port: number, myRouter: MyRouter<MyHttpHandle
     return myHttpServer;
 }
 
-async function handleRequest(req: IncomingMessage, res: ServerResponse, router: MyRouter<MyHttpHandler>) {
+function handleRequest(req: IncomingMessage, res: ServerResponse, router: MyRouter<MyHttpHandler>) {
     const handleError = (errorMessage: HttpStatusMessage, err?: unknown) => {
         const errorInfo = getHttpErrorInfo(errorMessage);
         logError(`HTTP Request Error:\nUrl: ${req.url}\nHeaders: ${JSON.stringify(req.headers, null, 2)}`, '\nHTTP Message:', errorMessage, '\nError:', !err ? 'No Error Object' : err);
@@ -39,7 +39,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, router: 
     };
 
     try {
-        const myReq = await reqToMyReq(req);
+        const myReq = reqToMyReq(req);
         if (!myReq || !myReq.method || !myReq.url) {
             handleError('Bad Request');
             return;
@@ -67,8 +67,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, router: 
             handleError('Not Found');
             return;
         }
-        const myRes = await myHandler(myReq, myParams)
-        myResToRes(myRes, res);
+        myHandler(myReq, myParams)
+            .then(myRes => myResToRes(myRes, res))
+            .catch(reason => handleError('Internal Server Error', reason))
     } catch (err) {
         handleError('Internal Server Error', err);
     }

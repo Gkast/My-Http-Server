@@ -1,7 +1,7 @@
 import {logError, logInfo} from "../util/logger";
 import {MyHttpServer} from "./my-http-server";
 
-export async function initializeGracefulShutdownMechanism(myHttpServer: MyHttpServer, timeoutMs: number) {
+export function initializeGracefulShutdownMechanism(myHttpServer: MyHttpServer, timeoutMs: number) {
     logInfo('Initializing Graceful Shutdown Mechanism...');
     const handleGracefulShutdown = (signal: string) => {
         logInfo('\nReceived', signal);

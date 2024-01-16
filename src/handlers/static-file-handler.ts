@@ -4,12 +4,17 @@ import fs from "fs";
 import {getMimeType, MimeExtensions} from "../my-http/my-mime-types";
 import {logError} from "../util/logger";
 import {pageNotFoundResponse} from "../my-http/my-http-responses";
+import {directoryExists} from "../util/util";
 
 export function staticFileHandler(forcedURL?: string): MyHttpHandler {
     return async (req) => {
         try {
             const decodedPath = decodeURIComponent(req.url.pathname);
             const requestedFilePath = path.join(__dirname, '../..', forcedURL ? `/assets/public/${forcedURL}` : decodedPath);
+            const dirExists = await directoryExists(requestedFilePath)
+            if (!dirExists) {
+                return pageNotFoundResponse('Not Found', 'Not Found')
+            }
             const result = await fs.promises.stat(requestedFilePath);
             const ext = decodedPath.split('.').pop();
 

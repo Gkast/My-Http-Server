@@ -10,7 +10,7 @@ export function htmlTopPageTemplate(params: PageParams): string {
 <head>
     <meta charset="UTF-8">
     <title>${params.pageTitle}</title>
-    <link rel="stylesheet" type="text/css" href='${process.env.NODE_ENV === 'Production' ? '/assets/public/css/main.min.css' : '/assets/public/css/main.css'}'>
+    <link rel="stylesheet" type="text/css" href='${process.env.NODE_ENV === 'production' ? '/assets/public/css/min/main.min.css' : '/assets/public/css/main.css'}'>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
@@ -49,7 +49,7 @@ function require(key) {
     funcs[key].apply(null, resolved);
     return cache[key] = resolved[1];
 }}</script>
-<script src='${process.env.NODE_ENV === 'Production' ? '/assets/public/js/main.min.js' : '/assets/public/js/main.js'}'></script>
+<script src='${process.env.NODE_ENV === 'production' ? '/assets/public/js/min/main.min.js' : '/assets/public/js/main.js'}'></script>
 <script type="text/javascript">{Object.keys(deps).forEach(depName => require(depName))}</script>
 </body>
 </html>`;

@@ -3,16 +3,7 @@ import {minify as jsMinifier} from "terser";
 import {minify as cssMinifier, Result} from 'csso'
 import path from "node:path";
 import {logError, logInfo} from "./logger";
-
-async function directoryExists(directoryPath: string): Promise<boolean> {
-    try {
-        await fs.access(directoryPath);
-        return true;
-    } catch (err) {
-        logError('Error accessing the given directory:', directoryPath, err);
-        return false;
-    }
-}
+import {directoryExists} from "./util";
 
 async function createDirectoryIfNotExists(directoryPath: string): Promise<void> {
     if (await directoryExists(directoryPath)) {
@@ -79,7 +70,7 @@ async function minifyJSFiles(directoryPath: string) {
 
 async function minify() {
     logInfo('Minification process started...')
-    const assetsPath = process.env.ASSETS_DIR || path.join(__dirname, '../..', 'assets');
+    const assetsPath = process.env.ASSETS_DIR || path.join(__dirname, '../..', 'assets', 'public');
     const jsPath = path.join(assetsPath, 'js')
     const cssPath = path.join(assetsPath, 'css')
     logInfo(`Assets Path: ${assetsPath}\nJS Path: ${jsPath}\nCSS Path: ${cssPath}`)

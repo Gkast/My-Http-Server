@@ -4,8 +4,7 @@
   ],
   "ext": "ts",
   "ignore": [
-    "src/**/*.spec.ts",
-    "node_modules"
+    "src/**/*.spec.ts"
   ],
   "exec": "tsc && node dist/main.js",
   "delay": 2000

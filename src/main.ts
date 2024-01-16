@@ -26,14 +26,16 @@ process.on('uncaughtException', (error, origin) => {
 });
 process.on('unhandledRejection', (reason, promise) => logError("Unhandled Rejection:", reason, promise));
 
-async function startAPI() {
-    const myRouter = createMyRouter<MyHttpHandler>()
-    await initRoutes(myRouter)
-    const myHttpServer = createMyHttpServer(PORT, myRouter)
-    await initializeGracefulShutdownMechanism(myHttpServer, timeoutMs)
-    HOST ?
-        myHttpServer.listen(PORT, HOST, () => logInfo(`Server is listening at http://${HOST}:${PORT}`)) :
-        myHttpServer.listen(PORT, () => logInfo(`Server is listening at http://0.0.0.0:${PORT}`))
+function startAPI() {
+    return new Promise(() => {
+        const myRouter = createMyRouter<MyHttpHandler>()
+        initRoutes(myRouter)
+        const myHttpServer = createMyHttpServer(PORT, myRouter)
+        initializeGracefulShutdownMechanism(myHttpServer, timeoutMs)
+        HOST ?
+            myHttpServer.listen(PORT, HOST, () => logInfo(`Server is listening at http://${HOST}:${PORT}`)) :
+            myHttpServer.listen(PORT, () => logInfo(`Server is listening at http://0.0.0.0:${PORT}`))
+    })
 }
 
 startAPI().catch(reason => {

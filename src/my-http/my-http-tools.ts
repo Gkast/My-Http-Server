@@ -75,13 +75,16 @@ export type MyHttpRequest = {
     readonly remoteAddr: string | undefined;
     readonly httpVersion: string;
     readonly headers: IncomingHttpHeaders;
+    readonly trailers: NodeJS.Dict<string>
     readonly body: NodeJS.ReadableStream;
     readonly nodeJsReqObject: IncomingMessage;
+    readonly cookies: Map<string, string> | undefined
 }
 
 export type MyHttpResponse = {
     readonly status: HttpStatusCode;
     readonly headers: OutgoingHttpHeaders;
+    readonly security_headers?: boolean
     readonly minify?: boolean
     readonly body?: string | ((res: NodeJS.WritableStream) => void);
 }
@@ -113,36 +116,42 @@ export function parseRequestCookies(cookies: string): Map<string, string> {
     return allCookiesMap;
 }
 
-export async function reqToMyReq(req: IncomingMessage): Promise<MyHttpRequest> {
+export function reqToMyReq(req: IncomingMessage): MyHttpRequest {
     return {
         url: new URL(req.url || '', `${HTTP_PREFIX}${req.headers.host}`),
         method: req.method,
         remoteAddr: req.socket.remoteAddress,
         httpVersion: req.httpVersion,
         headers: req.headers,
+        trailers: req.trailers,
         body: req,
         nodeJsReqObject: req,
+        get cookies() {
+            return req.headers.cookie ? parseRequestCookies(req.headers.cookie) : undefined
+        }
     };
 }
 
 export function myResToRes(myRes: MyHttpResponse, res: ServerResponse): void {
-    const {status, headers, minify, body} = myRes;
+    const {status, headers, security_headers, minify, body} = myRes;
     res.statusCode = status;
     res.statusMessage = getHttpStatusMessage(status);
 
-    // res.setHeader('Content-Security-Policy', "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests");
-    // res.setHeader('Cross-Origin-Opener-Policy', "same-origin");
-    // res.setHeader('Cross-Origin-Resource-Policy', "cross-origin");
-    // res.setHeader('Origin-Agent-Cluster', "?1");
-    // res.setHeader('Referrer-Policy', 'no-referrer');
-    // res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
-    // res.setHeader('X-Content-Type-Options', 'nosniff');
-    // res.setHeader('X-Download-Options', 'noopen');
-    // res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    // res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
-    // res.setHeader('X-XSS-Protection', '0');
-    // res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    // res.setHeader('Permissions-Policy', 'geolocation=(self "http://localhost:3000")');
+    if (security_headers) {
+        // res.setHeader('Content-Security-Policy', "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests");
+        // res.setHeader('Cross-Origin-Opener-Policy', "same-origin");
+        // res.setHeader('Cross-Origin-Resource-Policy', "cross-origin");
+        // res.setHeader('Origin-Agent-Cluster', "?1");
+        // res.setHeader('Referrer-Policy', 'no-referrer');
+        // res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+        // res.setHeader('X-Content-Type-Options', 'nosniff');
+        // res.setHeader('X-Download-Options', 'noopen');
+        // res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+        // res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+        // res.setHeader('X-XSS-Protection', '0');
+        // res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        // res.setHeader('Permissions-Policy', 'geolocation=(self "http://localhost:3000")');
+    }
 
     Object.entries(headers).forEach(([headerName, headerValue]) => {
         if (headerValue) res.setHeader(headerName, headerValue);
