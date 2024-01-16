@@ -1,10 +1,8 @@
 import {IncomingHttpHeaders, IncomingMessage, ServerResponse} from "http";
 import {URL} from "url";
 import {OutgoingHttpHeaders} from "node:http";
-import {streamToString} from "../util/util";
-import {Socket} from "node:net";
 import {logError} from "../util/logger";
-import {minify, Options} from "html-minifier";
+import {minify as minifyHTML} from "html-minifier";
 
 const HTTP_STATUS = {
     100: 'Continue',
@@ -71,21 +69,20 @@ const HTTP_STATUS = {
 export type HttpStatusCode = keyof typeof HTTP_STATUS;
 export type HttpStatusMessage = typeof HTTP_STATUS[HttpStatusCode];
 
-export type MyHttpRequest<Body extends DefaultIncomingBody> = {
+export type MyHttpRequest = {
     readonly url: URL;
     readonly method: string | undefined;
     readonly remoteAddr: string | undefined;
     readonly httpVersion: string;
-    readonly socket: Socket;
-    readonly cookies: Map<string, string> | undefined
     readonly headers: IncomingHttpHeaders;
-    readonly body: Body;
+    readonly body: NodeJS.ReadableStream;
     readonly nodeJsReqObject: IncomingMessage;
 }
 
 export type MyHttpResponse = {
     readonly status: HttpStatusCode;
     readonly headers: OutgoingHttpHeaders;
+    readonly minify?: boolean
     readonly body?: string | ((res: NodeJS.WritableStream) => void);
 }
 
@@ -94,10 +91,8 @@ export type MyRoutePathVariables = {
     value: string | number
 }[] | undefined | null
 
-export type DefaultIncomingBody = { [key: string]: string | number }
-
-export type MyHttpHandler<Body extends DefaultIncomingBody = DefaultIncomingBody> =
-    (req: MyHttpRequest<Body>, myPathVars: MyRoutePathVariables) => Promise<MyHttpResponse>;
+export type MyHttpHandler =
+    (req: MyHttpRequest, myPathVars: MyRoutePathVariables) => Promise<MyHttpResponse>;
 
 const HTTP_PREFIX = 'http://';
 
@@ -118,54 +113,62 @@ export function parseRequestCookies(cookies: string): Map<string, string> {
     return allCookiesMap;
 }
 
-export async function reqToMyReq<Body extends DefaultIncomingBody = DefaultIncomingBody>(req: IncomingMessage): Promise<MyHttpRequest<Body>> {
-    try {
-        const cookies = req.headers.cookie ? parseRequestCookies(req.headers.cookie) : undefined
-        const bodyString = await streamToString(req);
-        const body = bodyString.trim() === '' ? null : JSON.parse(bodyString);
-        return {
-            url: new URL(req.url || '', `${HTTP_PREFIX}${req.headers.host}`),
-            method: req.method,
-            remoteAddr: req.socket.remoteAddress,
-            httpVersion: req.httpVersion,
-            socket: req.socket,
-            headers: req.headers,
-            cookies: cookies,
-            body: body,
-            nodeJsReqObject: req,
-        };
-    } catch (err) {
-        logError('Error parsing request body:', err);
-        throw new Error('Failed to parse request body');
-    }
+export async function reqToMyReq(req: IncomingMessage): Promise<MyHttpRequest> {
+    return {
+        url: new URL(req.url || '', `${HTTP_PREFIX}${req.headers.host}`),
+        method: req.method,
+        remoteAddr: req.socket.remoteAddress,
+        httpVersion: req.httpVersion,
+        headers: req.headers,
+        body: req,
+        nodeJsReqObject: req,
+    };
 }
 
 export function myResToRes(myRes: MyHttpResponse, res: ServerResponse): void {
-    const {status, headers, body} = myRes;
+    const {status, headers, minify, body} = myRes;
     res.statusCode = status;
     res.statusMessage = getHttpStatusMessage(status);
 
     // res.setHeader('Content-Security-Policy', "default-src 'self';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'self';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests");
-    res.setHeader('Cross-Origin-Opener-Policy', "same-origin");
-    res.setHeader('Cross-Origin-Resource-Policy', "cross-origin");
-    res.setHeader('Origin-Agent-Cluster', "?1");
-    res.setHeader('Referrer-Policy', 'no-referrer');
-    res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Download-Options', 'noopen');
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
-    res.setHeader('X-XSS-Protection', '0');
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    res.setHeader('Permissions-Policy', 'geolocation=(self "http://localhost:3000")');
+    // res.setHeader('Cross-Origin-Opener-Policy', "same-origin");
+    // res.setHeader('Cross-Origin-Resource-Policy', "cross-origin");
+    // res.setHeader('Origin-Agent-Cluster', "?1");
+    // res.setHeader('Referrer-Policy', 'no-referrer');
+    // res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+    // res.setHeader('X-Content-Type-Options', 'nosniff');
+    // res.setHeader('X-Download-Options', 'noopen');
+    // res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    // res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+    // res.setHeader('X-XSS-Protection', '0');
+    // res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    // res.setHeader('Permissions-Policy', 'geolocation=(self "http://localhost:3000")');
 
     Object.entries(headers).forEach(([headerName, headerValue]) => {
         if (headerValue) res.setHeader(headerName, headerValue);
     });
 
-    if (body) {
-        if (typeof body === 'string') {
-            const minifyOptions: Options = {
+    const contentType = headers["content-type"] ? headers["content-type"] as string : 'text/plain'
+
+    if (!body) res.end();
+    if (typeof body === 'string' && body.length > 0) {
+        contentType !== 'text/plain' && process.env.NODE_ENV === 'production' && minify ?
+            res.end(minifyBody(body, contentType)) : res.end(body)
+    } else if (typeof body === 'function') body(res);
+    else {
+
+        res.setHeader("Content-Type", "text/plain")
+        res.statusCode = 500;
+        res.statusMessage = getHttpStatusMessage(500)
+        res.end('Internal Server Error');
+        logError('Unexpected response body type:', typeof body);
+    }
+}
+
+function minifyBody(body: string, contentType: string): string {
+    switch (contentType) {
+        case 'text/html':
+            return minifyHTML(body, {
                 collapseWhitespace: true,
                 removeComments: true,
                 removeRedundantAttributes: true,
@@ -183,19 +186,10 @@ export function myResToRes(myRes: MyHttpResponse, res: ServerResponse): void {
                 sortClassName: true,
                 useShortDoctype: true,
                 includeAutoGeneratedTags: true
-            }
-            const minifiedBody = minify(body, minifyOptions)
-            res.end(minifiedBody);
-        } else if (typeof body === 'function') {
-            body(res);
-        } else {
-            res.setHeader("Content-Type", "text/plain")
-            res.statusCode = 500;
-            res.statusMessage = getHttpStatusMessage(500)
-            res.end('Internal Server Error');
-            logError('Unexpected response body type:', typeof body);
-        }
-    } else {
-        res.end();
+            })
+        case 'application/json':
+            return JSON.stringify(body, null, 0)
+        default:
+            return body
     }
 }

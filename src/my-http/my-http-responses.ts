@@ -1,4 +1,4 @@
-import {MyHttpResponse} from "./my-http-tools";
+import {HttpStatusCode, MyHttpResponse} from "./my-http-tools";
 import {getMimeType, MyMimeTypes} from "./my-mime-types";
 import {htmlPageTemplate, notFoundHtmlTemplate} from "./my-html-templates";
 
@@ -8,38 +8,41 @@ export type PageParams = {
 }
 
 export function pageHtmlResponse(
-    params: PageParams): MyHttpResponse {
+    params: PageParams, minifyOption = true): MyHttpResponse {
     return {
         status: 200,
         headers: {"content-type": getMimeType("html")},
+        minify: minifyOption,
         body: htmlPageTemplate(params)
     }
 }
 
 export function pageResponseStream(
+    statusCode: HttpStatusCode = 200,
     contentType: MyMimeTypes,
     pageResponseStream: (res: NodeJS.WritableStream) => void): MyHttpResponse {
     return {
-        status: 200,
+        status: statusCode,
         headers: {"content-type": contentType},
         body: pageResponseStream
     }
 }
 
 export function downloadResponse(
+    statusCode: HttpStatusCode = 200,
     filename: string,
     pageResponse: string | ((res: NodeJS.WritableStream) => void)
 ): MyHttpResponse {
     return {
-        status: 200,
+        status: statusCode,
         headers: {"content-disposition": `attachment; ${filename ? `filename=${filename}` : ''}`},
         body: pageResponse
     }
 }
 
-export function redirectResponse(location: string): MyHttpResponse {
+export function redirectResponse(statusCode: HttpStatusCode = 302, location: string): MyHttpResponse {
     return {
-        status: 302,
+        status: statusCode,
         headers: {location: location},
     }
 }
