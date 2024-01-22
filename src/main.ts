@@ -26,7 +26,7 @@ process.on('uncaughtException', (error, origin) => {
 });
 process.on('unhandledRejection', (reason, promise) => logError("Unhandled Rejection:", reason, promise));
 
-function startAPI() {
+export function startAPI() {
     return new Promise(() => {
         const myRouter = createMyRouter<MyHttpHandler>()
         initRoutes(myRouter)

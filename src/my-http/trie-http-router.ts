@@ -54,6 +54,7 @@ class Node {
                 return e;
             }
         }
+        return undefined
     }
 
     findChildWithLabel(c: number): Node | undefined {
@@ -63,6 +64,7 @@ class Node {
                 return e;
             }
         }
+        return undefined
     }
 
     findChildByKind(t: number): Node | undefined {
@@ -72,6 +74,7 @@ class Node {
                 return e;
             }
         }
+        return undefined
     }
 
     addHandler(method: HttpMethod, handler: any, pnames?: string[]) {
